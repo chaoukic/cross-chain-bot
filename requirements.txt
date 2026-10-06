@@ -1,0 +1,6 @@
+# crosschain paper-trading bot (PAPER TRADING ONLY) - Python packages for .venv
+# Installed automatically by venv_check.sh (run.sh / supervise.sh) when .venv is missing or broken.
+# Versions in use on 2026-10-06: requests 2.34.2, fastapi 0.142.2, uvicorn 0.54.0 (Python 3.13.5)
+requests
+fastapi
+uvicorn

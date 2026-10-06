@@ -1,0 +1,274 @@
+# ============================================================
+#  Crosschain scanner + PAPER trader configuration
+#  PAPER TRADING ONLY - fake money, no wallets, no keys, no real trades.
+#  Edit and save; the bot re-reads this file every cycle (no restart needed).
+#  Percentages are plain numbers (5 = 5%).
+#
+#  ONE strategy, ONE fake account. Every token (brand-new launches and older
+#  coins alike) goes through the same funnel:
+#     market data -> age bucket -> liquidity/volume/market cap -> real buys+sells
+#     -> safety checks (per chain) -> holder checks -> score -> GOOD-ENTRY TIMING
+#  Tokens are put in an "age bucket" and some thresholds differ per bucket:
+#     new         = pool younger than [buckets.new].max_age_hours (24h)
+#     established = older than that, up to [buckets.established].max_age_days
+# ============================================================
+
+[scanner]
+scan_interval_sec        = 90    # how often a scan cycle starts
+max_watchlist_eval       = 450   # max tokens re-checked per cycle, all chains (DexScreener, 30 per call, cheap)
+safety_checks_per_cycle  = 8     # max GoPlus / honeypot.is / Solana-RPC safety lookups per cycle
+holder_retries_per_cycle = 4     # Solana: retries of the on-chain top-holder lookup when the public RPC refused it
+safety_cache_min_new     = 10    # re-use a new token's safety result for this long
+safety_cache_min_est     = 60    # re-use an established token's safety result for this long
+timing_checks_per_cycle  = 2     # max GeckoTerminal price-candle lookups per cycle (the scarce API)
+candle_cache_min_new     = 6     # re-use 5-minute candles of a new token for this long
+candle_cache_min_est     = 45    # re-use hourly candles of an established token for this long
+gt_discovery_calls_per_cycle = 2 # max GeckoTerminal discovery calls per cycle (most overdue first)
+new_pools_every_min      = 4     # per chain: GeckoTerminal "new pools" list at most this often
+trending_every_min       = 12    # per chain: GeckoTerminal "trending pools" at most this often
+top_volume_every_min     = 30    # per chain: GeckoTerminal "top 24h volume pools" at most this often
+use_dexscreener_lists    = true  # also use DexScreener's latest profiles / boosts / takeovers lists (cheap)
+dexscreener_lists_every_min = 5  # ...at most this often
+established_watch_hours  = 48    # an established coin stays on the watchlist this long after it was last seen in a list
+
+[chains.solana]
+enabled          = true
+dexscreener_slug = "solana"
+geckoterminal_id = "solana"
+kind             = "solana"
+max_open         = 3       # max open paper positions on this chain
+slippage_pct     = 1.0     # assumed on every buy and sell
+fee_pct          = 0.5     # assumed DEX/priority fee per side
+gas_usd          = 0.0     # Solana fees are covered by fee_pct
+rpc_endpoints    = ["https://api.mainnet-beta.solana.com", "https://public.rpc.solanavibestation.com"]
+
+[chains.bsc]
+enabled          = true
+dexscreener_slug = "bsc"
+geckoterminal_id = "bsc"
+kind             = "evm"
+chain_id         = 56
+max_open         = 3
+slippage_pct     = 1.0
+fee_pct          = 0.25    # PancakeSwap v2 pool fee; the token's own buy/sell tax is added on top (from the safety check)
+gas_usd          = 0.10    # small fixed gas cost per buy and per sell
+rpc_endpoints    = ["https://bsc-dataseed.bnbchain.org", "https://bsc-rpc.publicnode.com"]
+
+[chains.robinhood]
+# Robinhood Chain mainnet (Arbitrum Orbit L2, chain id 4663, gas token ETH), live since 2026-07-01.
+# Listed on DexScreener ("robinhood") and GeckoTerminal ("robinhood"); GoPlus supports it (4663).
+# honeypot.is does NOT support it, so buy/sell tax may be unknown (see [safety].evm_unknown_tax).
+enabled          = true
+dexscreener_slug = "robinhood"
+geckoterminal_id = "robinhood"
+kind             = "evm"
+chain_id         = 4663
+max_open         = 2
+slippage_pct     = 1.0
+fee_pct          = 0.3
+gas_usd          = 0.05
+rpc_endpoints    = ["https://rpc.mainnet.chain.robinhood.com"]
+honeypot_is      = false   # honeypot.is has no Robinhood Chain support (returns "Invalid chain")
+
+# ------------------------------------------------------------ age buckets
+[buckets.new]
+max_age_hours          = 24     # pools younger than this are "new"
+min_pool_age_min       = 10     # younger pools wait ("pending")
+min_liquidity_usd      = 15000
+min_volume_h1_usd      = 5000
+min_volume_h24_usd     = 20000
+min_market_cap_usd     = 50000
+max_market_cap_usd     = 10000000
+min_buys_h1            = 10     # need real buying...
+min_sells_h1           = 5      # ...and real selling (near-zero sells = possible honeypot)
+min_sell_buy_ratio     = 0.2    # sells / buys over 1h at least this
+min_txns_h24           = 150
+min_holders            = 100    # when a holder count is known
+max_top_holder_pct     = 5      # biggest wallet (pools/LP/burn excluded)
+max_top10_pct          = 60
+require_owner_renounced = true  # EVM: contract owner must be renounced (or none)
+min_score_to_buy       = 55
+# exits for fast-moving new coins
+take_profit_pct        = 40     # first take-profit: sell part
+take_profit_sell_fraction = 0.5
+take_profit2_pct       = 100    # sell the rest
+stop_loss_pct          = 20
+trailing_activate_pct  = 10     # trailing stop switches on after this gain...
+trailing_stop_pct      = 15     # ...and exits this far below the peak
+volume_decay_ratio     = 0.2    # exit if recent volume < 20% of its average pace
+volume_decay_min_hold_min = 30
+max_hold_hours         = 24
+
+[buckets.established]
+max_age_days           = 180    # older coins are ignored (up to ~6 months)
+min_liquidity_usd      = 100000
+min_volume_h24_usd     = 100000
+min_volume_h1_usd      = 2000
+min_market_cap_usd     = 1000000
+max_market_cap_usd     = 500000000
+min_buys_h1            = 10
+min_sells_h1           = 5
+min_sell_buy_ratio     = 0.2
+min_txns_h24           = 300
+min_holders            = 1000
+max_top_holder_pct     = 10
+max_top10_pct          = 50
+require_owner_renounced = false # owner allowed, but dangerous owner powers (below) still reject
+min_score_to_buy       = 55
+# exits for slower coins: smaller targets, tighter stop, longer hold
+take_profit_pct        = 12
+take_profit_sell_fraction = 0.5
+take_profit2_pct       = 25
+stop_loss_pct          = 8
+trailing_activate_pct  = 8
+trailing_stop_pct      = 5
+volume_decay_ratio     = 0      # 0 = off for established coins
+volume_decay_min_hold_min = 0
+max_hold_hours         = 168    # 7 days
+
+# ------------------------------------------------------------ safety (applies to every bucket)
+[safety]
+# Solana (same as memebot): mint + freeze authority must be revoked (read from the chain),
+# plus Token-2022 traps from GoPlus (transfer fee, transfer hook, balance changeable by an authority).
+require_mint_revoked      = true
+require_freeze_revoked    = true
+# EVM (BSC, Robinhood): GoPlus token security + honeypot.is simulation (BSC)
+max_buy_tax_pct           = 10
+max_sell_tax_pct          = 10
+evm_unknown_tax           = "allow"  # "allow" (score penalty) or "pending" when neither GoPlus nor honeypot.is could measure tax
+reject_mintable           = true     # owner can mint new tokens
+reject_proxy              = true     # upgradeable contract: code can be swapped later
+reject_blacklist          = true     # contract has a blacklist function
+reject_hidden_owner       = true
+reject_take_back_ownership = true
+reject_pausable           = true     # transfers can be paused
+reject_slippage_modifiable = true    # owner can change the tax
+reject_not_open_source    = true
+reject_honeypot           = true     # GoPlus or honeypot.is says honeypot / cannot sell
+
+# ------------------------------------------------------------ holder trend (both buckets)
+[holder_trend]
+min_interval_min      = 10     # need two holder-count snapshots at least this far apart
+price_up_pct          = 10     # if price rose more than this ...
+min_holder_growth_pct = 1      # ... holders must have grown at least this much
+max_holder_drop_pct   = 5      # reject if holders fell more than this
+
+# ------------------------------------------------------------ good-entry timing (last gate before a buy)
+# Uses GeckoTerminal price candles (5-minute for new coins, hourly for established ones).
+# "Recent high" = highest candle high in the look-back window. The token must have
+# pulled back from that high by a modest amount (not crashed), still be in an uptrend,
+# have bounced a little off the dip low, and buyers must still be active.
+[timing.new]
+candle_minutes        = 5      # 5-minute candles
+lookback_candles      = 24     # recent high = highest high in the last 24 candles (2 hours)
+pullback_min_pct      = 8      # need at least this dip from the recent high ...
+pullback_max_pct      = 30     # ... but not more (a deeper drop = dump, not a dip)
+trend_ma_candles      = 24     # uptrend = price above the average close of the last 24 candles...
+trend_ma_tolerance_pct = 3     # ...or no more than this % below it (a dip often touches the average)
+min_rise_before_pct   = 300    # the recent high must be at least this much above the lowest low before it (there was a run-up)
+bounce_min_pct        = 1.5    # price must be at least this % above the lowest low since the high (stabilising)
+max_m5_change_pct     = 8      # no buying into a vertical 5-minute spike
+min_m5_change_pct     = -6     # and not while it is dropping fast right now (freefall)
+freefall_red_candles  = 3      # reject if the last N candles are all red...
+freefall_drop_pct     = 12     # ...and together fell more than this
+min_buy_sell_ratio_h1 = 1.0    # buying pressure must hold: 1h buys / sells at least this
+volume_recover_ratio  = 0.5    # last 2 candles' volume >= this x the average candle volume in the window
+
+[timing.established]
+candle_minutes        = 60     # hourly candles
+lookback_candles      = 72     # recent high = highest high in the last 72 hours
+pullback_min_pct      = 7
+pullback_max_pct      = 25
+trend_ma_candles      = 72     # uptrend = price above its 72-hour average close...
+trend_ma_tolerance_pct = 2
+ma_rising_candles     = 24     # ...and that average higher than it was 24 hours ago
+min_rise_before_pct   = 15
+bounce_min_pct        = 1.0
+max_h1_change_pct     = 8      # no buying a 1-hour spike
+min_h1_change_pct     = -5     # not while falling hard this hour
+freefall_red_candles  = 4
+freefall_drop_pct     = 10
+min_buy_sell_ratio_h1 = 0.9
+volume_recover_ratio  = 0.6    # last 3 hourly candles' volume >= this x the window's average hourly volume
+
+# ------------------------------------------------------------ fake account (shared by all chains)
+[paper]
+starting_balance_usd      = 1000
+max_open_positions        = 5     # total, all chains (each chain also has max_open above)
+position_pct_of_balance   = 2     # each trade uses 2% of current equity
+max_pct_of_pool_liquidity = 2     # and never more than 2% of the pool's liquidity
+daily_loss_cap_pct        = 5     # pause new entries after losing 5% of day-start equity (resets midnight Toronto)
+reentry_cooldown_hours    = 24    # don't buy the same token again within this window
+update_interval_sec       = 45    # how often open positions are re-priced (DexScreener)
+
+# ------------------------------------------------------------ API budgets (this machine also runs memebot + copytrader)
+[apis]
+geckoterminal_per_min = 4     # memebot uses 8/min and copytrader 6/min from the same IP; keep ours small
+geckoterminal_429_backoff_sec = 120
+dexscreener_per_min   = 30    # hard spacing cap incl. retries (was 40); public limit ~300/min but shared IP with memebot + copytrader
+ds_cooldown_sec       = 60    # on any DexScreener 429: global pause of ALL ds calls this long...
+ds_cooldown_max_sec   = 300   # ...doubling on consecutive 429s up to this; resets after a successful call
+goplus_per_min        = 20
+honeypot_per_min      = 20
+solana_rpc_per_sec    = 0.5
+
+[telegram]
+enabled = true                # sends only once CROSSCHAIN_TELEGRAM_TOKEN exists; until then alerts just queue
+max_backlog_age_hours = 6     # when sending starts, older queued alerts are marked expired instead of flooding the chat
+
+# ============================================================ added 2026-10-03 (owner-approved; see analysis-bot assessment)
+# Price guard, rug exit, pool-limited paper fills and LP-lock check, ported from memebot. Nothing above was changed.
+
+[guard]
+# Price-reading checks (priceguard.py). No buy and no exit (stop / take-profit / trailing) is decided on a rejected reading.
+# Rejected readings are logged with [PRICE-GUARD] (bot.log + decisions table, kind GUARD).
+enabled                  = true
+max_jump_up_factor       = 5.0    # open position: a reading more than 5x the last good price is "extreme" (needs confirmation)
+max_drop_pct             = 50     # open position: a reading more than 50% below the last good price is "extreme"
+confirm_tolerance_pct    = 25     # an extreme reading must be confirmed by GeckoTerminal or by the next check within this %
+confirm_window_sec       = 300    # ...and within this many seconds (also the window for confirming a rug)
+stale_gap_min            = 10     # after a data gap this long, the first reading is not acted on
+max_supply_deviation_pct = 50     # market cap / price must imply the same token supply as before
+use_second_source        = true   # ask GeckoTerminal to confirm extreme readings (only when a GT slot is free; rare)
+pair_mismatch_pct        = 30     # entry: price must be within 30% of the median of the token's other pools...
+min_ref_pair_liq_usd     = 5000   # ...counting only pools with at least this much liquidity
+candle_mismatch_pct      = 30     # entry: price must be within 30% of the latest GeckoTerminal candle close (already fetched)
+entry_jump_window_sec    = 900    # entry: a 5x jump / 50% drop vs the previous scan reading (if younger than this) waits a scan
+
+[rug]
+# Rug detection on open positions. Detected on one check, confirmed on the next (within confirm_window_sec), then
+# everything is sold at once with exit reason "rug (...)", at a fill limited by what the pool can still pay.
+enabled                = true
+liq_drain_pct          = 80     # pool liquidity down 80%+ from entry = drained
+min_exit_liquidity_usd = 1000   # pool liquidity below this = drained
+crash_liq_drop_pct     = 50     # also a rug: liquidity down 50%+ from entry...
+crash_price_drop_pct   = 50     # ...together with price down 50%+ from entry
+pool_missing_checks    = 3      # pool absent from answered DexScreener batches this many checks in a row -> ask GeckoTerminal;
+                                # GeckoTerminal "no such pool" = pool removed = rug (sold for $0)
+
+[fills]
+# Paper fill model for EVERY buy and sell (all chains). Slippage/fee/tax/gas from [chains.*] still apply on top.
+fill_cap                  = true  # constant-product price impact from the pool's current liquidity (worse of this and slippage_pct)
+max_fill_pct_of_quote_liq = 50    # a sell never receives more than 50% of the pool's quote side (liquidity / 2)
+
+[lpcheck]
+# Pool-money (LP) lock check right before a buy (lpcheck.py). Solana: RugCheck report. BSC/Robinhood: GoPlus lp_holders
+# from the safety lookup the bot already makes (no extra call). FAIL-CLOSED: "unknown" (API down, no LP data) = no buy.
+enabled           = true
+min_lp_locked_pct = 90       # at least 90% of the pool's LP must be locked or burned
+reject_danger     = true     # Solana: skip coins RugCheck marks with any "danger" risk
+fail_closed       = true     # true = an unknown lock status never buys (memebot + assessment); false = allow unknown
+cache_sec         = 600      # re-use a RugCheck answer for this long
+rule_new          = "pool"   # new coins: the pool we buy in must be locked (if not listed: every pool)
+rule_established  = "any"    # established coins: at least one pool locked (concentrated-liquidity pools cannot be locked)
+rugcheck_per_min  = 10       # RugCheck request spacing (shared machine: memebot also uses RugCheck)
+
+# ============================================================ added 2026-10-03 (owner-approved side-by-side test)
+# A SECOND fake $1,000 account ("New scoring") that differs from the existing account ("Current scoring") ONLY in the
+# score gate and ranking: score = scoring_v1 model probability x 100 (scoring_v1/, copied from analysis-bot).
+# Same coins, same safety checks, timing gate, price guard, LP-lock check, sizing, exits and fill model.
+# Its own cash, position caps, daily loss cap, cooldowns and equity. Nothing above was changed.
+[scoring_new]
+enabled              = true   # false = new account takes no new trades (also off automatically if the model self-test fails)
+min_score_to_buy     = 38.4   # new score (probability x 100) needed; NOT comparable with min_score_to_buy above
+starting_balance_usd = 1000   # separate fake balance for the new account

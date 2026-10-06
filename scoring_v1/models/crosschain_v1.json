@@ -1,0 +1,236 @@
+{
+ "model": "scoring_v1",
+ "bot": "crosschain",
+ "version": "1.0",
+ "created": "2026-10-03T14:35-04:00",
+ "kind": "logistic regression, L2 (C=0.1), all simple metrics",
+ "label": "win = price reached +20% before -25% within 60 min of the evaluation price (timeout = 0), DexScreener/Jupiter quotes, before costs",
+ "training": {
+  "population": "tradeable rows of scoring.db: past the age+liquidity stages, pool liquidity > 0, mcap/liq >= 1.3; one row per coin per 30 min",
+  "rows": 747,
+  "coins": 249,
+  "base_rate": 0.39,
+  "date_range_toronto": "2026-10-02T12:05-04:00 .. 2026-10-03T13:56-04:00"
+ },
+ "inputs": "the bot's evaluation metrics dict (scanner metrics JSON stored in evaluations.metrics) + chain + bucket",
+ "pipeline": [
+  "raw = feature definition (below) from the metrics dict; undefined/None/non-finite -> missing",
+  "x = min(max(raw, clip_low), clip_high)  (missing stays missing)",
+  "x = fill_missing if missing",
+  "z = (x - mean) / std",
+  "logit = intercept + sum(coef * z);  prob = 1 / (1 + exp(-logit));  score = round(prob * 100, 1)"
+ ],
+ "intercept": -0.49100931142861065,
+ "features": [
+  {
+   "name": "log_liq",
+   "definition": "log10(metrics['liq']) - pool liquidity USD (DexScreener liquidity.usd); missing if liq is None or <= 0",
+   "clip_low": 4.193481371246643,
+   "clip_high": 6.367249350532632,
+   "fill_missing": 4.7243267528223605,
+   "mean": 4.793554285244423,
+   "std": 0.43068300648946994,
+   "coef": -0.039811886842495064
+  },
+  {
+   "name": "log_vol_h1",
+   "definition": "ln(1 + metrics['vol_h1']) - 1h volume USD; missing if None or < 0",
+   "clip_low": 0.0,
+   "clip_high": 15.862856875186763,
+   "fill_missing": 11.552647302539693,
+   "mean": 11.506006094832767,
+   "std": 2.39244490163679,
+   "coef": 0.5930077594184107
+  },
+  {
+   "name": "log_vol_h24",
+   "definition": "ln(1 + metrics['vol_h24']) - 24h volume USD; missing if None or < 0",
+   "clip_low": 9.700695911313383,
+   "clip_high": 19.556352143244425,
+   "fill_missing": 13.743949344680773,
+   "mean": 13.676351517966236,
+   "std": 1.8461973443685447,
+   "coef": -0.029338535218184227
+  },
+  {
+   "name": "vol_liq",
+   "definition": "slog(vol_h1 / liq); missing if vol_h1 is None or liq is None or <= 0",
+   "clip_low": 0.0,
+   "clip_high": 3.364583298937959,
+   "fill_missing": 1.1852180193114619,
+   "mean": 1.3112310318335199,
+   "std": 0.9226123735641375,
+   "coef": 0.07470038199475985
+  },
+  {
+   "name": "vol_h1_share",
+   "definition": "vol_h1 / vol_h24 (share of the day's volume done in the last hour); missing if vol_h24 is None or <= 0",
+   "clip_low": 0.0,
+   "clip_high": 1.0,
+   "fill_missing": 0.1888460768710192,
+   "mean": 0.41647436035717783,
+   "std": 0.4232779479481134,
+   "coef": 0.12914271998094884
+  },
+  {
+   "name": "log_mcap",
+   "definition": "log10(metrics['mcap']); missing if None or <= 0",
+   "clip_low": 4.478443858595276,
+   "clip_high": 9.276685905672592,
+   "fill_missing": 5.31564292767444,
+   "mean": 5.511361394311826,
+   "std": 0.8190263133284815,
+   "coef": -0.059448509851200704
+  },
+  {
+   "name": "mcap_liq",
+   "definition": "slog(mcap / liq); missing if mcap or liq is None or <= 0",
+   "clip_low": 0.8555537748141843,
+   "clip_high": 11.260107413399696,
+   "fill_missing": 1.5982518685814333,
+   "mean": 1.8859999189645165,
+   "std": 1.2295147681085818,
+   "coef": -0.06152811168813856
+  },
+  {
+   "name": "log_age_min",
+   "definition": "ln(1 + metrics['age_min']) - pool age in minutes; missing if None or < 0",
+   "clip_low": 2.4403502886798063,
+   "clip_high": 10.833381512425866,
+   "fill_missing": 5.228517937738302,
+   "mean": 5.173687686176917,
+   "std": 1.6172125046556127,
+   "coef": -0.22668459823736684
+  },
+  {
+   "name": "log_buys_h1",
+   "definition": "ln(1 + metrics['buys_h1']); missing if None or < 0",
+   "clip_low": 0.0,
+   "clip_high": 9.53954487026318,
+   "fill_missing": 6.322565239927284,
+   "mean": 6.249965444844934,
+   "std": 1.8082149512517718,
+   "coef": -0.2704476521226964
+  },
+  {
+   "name": "log_sells_h1",
+   "definition": "ln(1 + metrics['sells_h1']); missing if None or < 0",
+   "clip_low": 0.0,
+   "clip_high": 9.403269411531076,
+   "fill_missing": 5.932245187448011,
+   "mean": 5.895116081559624,
+   "std": 1.7811828304109287,
+   "coef": -0.29853465100170024
+  },
+  {
+   "name": "bs_ratio",
+   "definition": "slog(buys_h1 / max(sells_h1, 1)); missing if buys_h1 or sells_h1 is None",
+   "clip_low": 0.0,
+   "clip_high": 2.315056615456527,
+   "fill_missing": 0.8240267551361743,
+   "mean": 0.9000205472271409,
+   "std": 0.3761677883761524,
+   "coef": 0.22883957147097714
+  },
+  {
+   "name": "chg_h1",
+   "definition": "slog(metrics['chg_h1']) - 1h price change %; missing if None",
+   "clip_low": -4.335524172529813,
+   "clip_high": 28.505922520674115,
+   "fill_missing": 2.5209170873110334,
+   "mean": 1.969895859205717,
+   "std": 4.762555481068869,
+   "coef": -0.0007474091556349734
+  },
+  {
+   "name": "chg_m5",
+   "definition": "slog(metrics['chg_m5']) - 5m price change %; missing if None",
+   "clip_low": -3.967811221684316,
+   "clip_high": 4.863982309252383,
+   "fill_missing": 0.5653138090500605,
+   "mean": 0.3909147795755856,
+   "std": 2.4394735704592505,
+   "coef": -0.12603480689459726
+  },
+  {
+   "name": "chg_h24",
+   "definition": "slog(metrics['chg_h24']) - 24h price change %; missing if None",
+   "clip_low": -3.6665612631657067,
+   "clip_high": 28.505922520674115,
+   "fill_missing": 6.154858094016418,
+   "mean": 6.049716273265932,
+   "std": 4.08118557497349,
+   "coef": -0.05302831223953921
+  },
+  {
+   "name": "is_bsc",
+   "definition": "1.0 if metrics['chain'] == 'bsc' else 0.0",
+   "clip_low": 0.0,
+   "clip_high": 1.0,
+   "fill_missing": 0.0,
+   "mean": 0.2463186077643909,
+   "std": 0.4308662799911395,
+   "coef": 0.08587877354243241
+  },
+  {
+   "name": "is_robinhood",
+   "definition": "1.0 if metrics['chain'] == 'robinhood' else 0.0",
+   "clip_low": 0.0,
+   "clip_high": 1.0,
+   "fill_missing": 0.0,
+   "mean": 0.2878179384203481,
+   "std": 0.4527458147170538,
+   "coef": 0.013564120554352412
+  },
+  {
+   "name": "is_established",
+   "definition": "1.0 if metrics['bucket'] == 'established' else 0.0 (Cross Chain bucket_of())",
+   "clip_low": 0.0,
+   "clip_high": 1.0,
+   "fill_missing": 0.0,
+   "mean": 0.022757697456492636,
+   "std": 0.14913009308309097,
+   "coef": -0.005961531146866622
+  }
+ ],
+ "domain_guard": "if liq > 0 and mcap > 0 and mcap / liq < 1.3: out of model domain (liquidity ~= market cap pools). score_v1 returns score 0.0, prob 0.0",
+ "output": "score 0-100 = probability x 100 (NOT on the same scale as the current 0-100 score; do not compare thresholds)",
+ "recommended_buy_threshold": 38.4,
+ "top10pct_threshold": 45.1,
+ "top10pct_use": "stricter gate for the new account while a soft daily cap is active (Trading Bot's 'score >= 75, half size' rule); same basis as below but the 90th percentile",
+ "threshold_basis": "80th percentile of this model's score on 99 test-period rows (2026-10-03T09:59-04:00 onward) that reached the bot's score gate -> about the top 20% of coins the gate sees",
+ "validation_time_split": {
+  "train": "2026-10-02T12:05-04:00 .. 2026-10-03T09:59-04:00",
+  "train_rows": 523,
+  "test": "2026-10-03T09:59-04:00 .. 2026-10-03T13:56-04:00",
+  "test_rows": 224,
+  "test_coins": 97,
+  "test_base_rate": 0.402,
+  "test_auc": 0.6,
+  "test_auc_ci95_by_coin": [
+   0.524,
+   0.681
+  ],
+  "current_score_proxy_test_auc": 0.509,
+  "top10pct": {
+   "n": 22,
+   "win_rate": 0.682,
+   "mean_bracket_ret_pct_before_costs": 6.94
+  },
+  "top20pct": {
+   "n": 44,
+   "win_rate": 0.523,
+   "mean_bracket_ret_pct_before_costs": 0.89
+  },
+  "top30pct": {
+   "n": 67,
+   "win_rate": 0.537,
+   "mean_bracket_ret_pct_before_costs": 0.73
+  },
+  "test_mean_bracket_ret_pct": -2.61
+ },
+ "warnings": [
+  "Validation test set is one morning (Oct 3 after ~10 AM): treat the threshold as provisional and re-fit after ~10 more days of data."
+ ],
+ "plain_words": "Higher score for coins doing a lot of their volume right now (1h volume, 1h volume vs 24h, volume vs liquidity), with more buys than sells, that are younger, not spiking in the last 5 minutes, and with fewer raw trade counts for the same volume (bigger average trades). Buy (new account) when score >= threshold."
+}

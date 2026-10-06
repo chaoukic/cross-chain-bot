@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+logs/
+backup_*/
+*.bak*
+telegram_chat.json
+site/data.json
+*.png
+box-secrets.json
+.env
+.playwright-mcp/

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Crosschain · Paper Trading Dashboard</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div class="banner">PAPER TRADING — fake money, no real funds. No wallets, no keys, no real trades.</div>
+<header class="topbar">
+  <div class="brand">Crosschain <span class="muted">Solana · BSC · Robinhood Chain scanner — one combined strategy</span></div>
+  <div class="meta"><span id="updated" class="muted"></span></div>
+</header>
+<main class="wrap">
+  <section class="card compare" id="compare"></section>
+
+  <nav class="tabs" id="tabs" aria-label="Paper account">
+    <a href="#current" data-tab="current" class="tab">Current scoring</a>
+    <a href="#new" data-tab="new" class="tab">New scoring</a>
+    <span class="tabnote muted small" id="tabnote"></span>
+  </nav>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid3" id="chaincards"></section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Equity curve <span class="muted small" id="eqnote">(fake $)</span></h2>
+      <div class="chartbox"><canvas id="eqchart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>P&amp;L breakdown</h2>
+      <div class="tablewrap"><table id="bychain"></table></div>
+      <div class="tablewrap" style="margin-top:14px"><table id="bybucket"></table></div>
+      <div class="note">One strategy; this table is for the account in the selected tab. "new" = pool younger than 24h, "established" = older coins; they use different liquidity/holder thresholds and exits (see settings).</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Open positions <span class="muted small acctname"></span></h2>
+    <div class="tablewrap"><table id="open"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Closed trades <span class="muted small acctname"></span></h2>
+    <div class="tablewrap"><table id="closed"></table></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Scan funnel <span class="muted small" id="funnelnote"></span></h2>
+      <div class="filters"><label>Chain <select id="funnelChain"><option value="">all chains</option></select></label></div>
+      <div id="funnel"></div>
+    </div>
+    <div class="card">
+      <h2>How a token gets bought</h2>
+      <div id="rules" class="rules"></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Tokens that reached the safety checks <span class="muted small">(last 6h)</span></h2>
+      <div class="tablewrap tall"><table id="deep"></table></div>
+    </div>
+    <div class="card">
+      <h2>Decision log</h2>
+      <div class="tablewrap tall"><table id="decisions"></table></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Live scan feed <span class="muted small" id="feednote"></span></h2>
+    <div class="filters">
+      <label>Chain <select id="feedChain"><option value="">all</option></select></label>
+      <label>Bucket <select id="feedBucket"><option value="">all</option><option>new</option><option>established</option></select></label>
+      <label><input type="checkbox" id="hidePending" checked> hide "pending"</label>
+      <label><input type="checkbox" id="hideLiq" checked> hide low-liquidity / not-listed rejects</label>
+    </div>
+    <div class="tablewrap tall"><table id="feed"></table></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Recent scan cycles</h2>
+      <div class="tablewrap"><table id="cycles"></table></div>
+    </div>
+    <div class="card">
+      <h2>Current settings <span class="muted small">(read-only · edit config.toml)</span></h2>
+      <div id="config" class="config tablewrap tall"></div>
+    </div>
+  </section>
+  <footer class="muted small">All times America/Toronto. Data: DexScreener, GeckoTerminal, GoPlus, honeypot.is, public RPCs (free, keyless). Nothing here is financial advice.</footer>
+</main>
+<script src="static/chart.umd.min.js"></script>
+<script src="static/app.js"></script>
+</body>
+</html>
